@@ -43,10 +43,31 @@ CREATE TABLE IF NOT EXISTS runs (
     metadata        TEXT NOT NULL DEFAULT '{}'
 );
 
+CREATE TABLE IF NOT EXISTS sessions (
+    id           TEXT PRIMARY KEY,
+    title        TEXT,
+    status       TEXT NOT NULL DEFAULT 'briefing',
+    silent_mode  INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL,
+    completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS session_messages (
+    id          TEXT PRIMARY KEY,
+    session_id  TEXT NOT NULL REFERENCES sessions(id),
+    role        TEXT NOT NULL,
+    agent_name  TEXT,
+    stage       TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    seq         INTEGER NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_tasks_status   ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority DESC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_runs_agent     ON runs(agent_name);
 CREATE INDEX IF NOT EXISTS idx_runs_task      ON runs(task_id);
+CREATE INDEX IF NOT EXISTS idx_session_msgs   ON session_messages(session_id, seq);
 """
 
 
@@ -228,6 +249,62 @@ class Store:
     def close(self) -> None:
         self._conn.close()
 
+    # ------------------------------------------------------------------ Sessions
+
+    def create_session(self, session) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO sessions (id, title, status, silent_mode, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (session.id, session.title, session.status,
+             int(session.silent_mode), session.created_at),
+        )
+
+    def get_session(self, session_id: str):
+        row = self._conn.execute(
+            "SELECT * FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        return _row_to_session(row) if row else None
+
+    def list_sessions(self, limit: int = 50):
+        rows = self._conn.execute(
+            "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [_row_to_session(r) for r in rows]
+
+    def update_session(self, session_id: str, **kwargs) -> None:
+        sets = ", ".join(f"{k} = ?" for k in kwargs)
+        self._conn.execute(
+            f"UPDATE sessions SET {sets} WHERE id = ?",
+            [*kwargs.values(), session_id],
+        )
+
+    def add_message(self, msg) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO session_messages
+                (id, session_id, role, agent_name, stage, content, seq, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (msg.id, msg.session_id, msg.role, msg.agent_name,
+             msg.stage, msg.content, msg.seq, msg.created_at),
+        )
+
+    def get_messages(self, session_id: str):
+        rows = self._conn.execute(
+            "SELECT * FROM session_messages WHERE session_id = ? ORDER BY seq ASC",
+            (session_id,),
+        ).fetchall()
+        return [_row_to_session_message(r) for r in rows]
+
+    def next_seq(self, session_id: str) -> int:
+        row = self._conn.execute(
+            "SELECT COALESCE(MAX(seq), -1) + 1 FROM session_messages WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        return row[0]
+
 
 # -------------------------------------------------------- helpers
 
@@ -262,4 +339,30 @@ def _row_to_run(row: sqlite3.Row) -> Run:
         output_tokens=row["output_tokens"],
         duration_seconds=row["duration_seconds"],
         metadata=json.loads(row["metadata"]),
+    )
+
+
+def _row_to_session(row):
+    from .models import Session
+    return Session(
+        id=row["id"],
+        title=row["title"],
+        status=row["status"],
+        silent_mode=bool(row["silent_mode"]),
+        created_at=row["created_at"],
+        completed_at=row["completed_at"],
+    )
+
+
+def _row_to_session_message(row):
+    from .models import SessionMessage
+    return SessionMessage(
+        id=row["id"],
+        session_id=row["session_id"],
+        role=row["role"],
+        agent_name=row["agent_name"],
+        stage=row["stage"],
+        content=row["content"],
+        seq=row["seq"],
+        created_at=row["created_at"],
     )

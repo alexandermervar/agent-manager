@@ -80,3 +80,31 @@ class Run:
     output_tokens: int = 0
     duration_seconds: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Session:
+    """
+    A Council session: one full Secretary interaction from brief to synthesis.
+    """
+    id: str = field(default_factory=_new_id)
+    title: Optional[str] = None
+    status: str = "briefing"        # briefing | selecting | deliberating | complete
+    silent_mode: bool = False
+    created_at: str = field(default_factory=_now)
+    completed_at: Optional[str] = None
+
+
+@dataclass
+class SessionMessage:
+    """
+    One message in a Council session — from user, secretary, an agent, or the system.
+    """
+    session_id: str
+    role: str                       # user | secretary | agent | system
+    stage: str                      # brief | select | deliberate | synthesis
+    content: str
+    seq: int                        # ordering within the session
+    id: str = field(default_factory=_new_id)
+    agent_name: Optional[str] = None
+    created_at: str = field(default_factory=_now)
