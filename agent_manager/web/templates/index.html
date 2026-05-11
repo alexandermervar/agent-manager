@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block content %}
+<form method="post" action="/sessions">
+  <input name="message" placeholder="What's on your mind?" required>
+  <button type="submit">Convene</button>
+</form>
+{% endblock %}

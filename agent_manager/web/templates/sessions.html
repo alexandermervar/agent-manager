@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block content %}
+<h1>Sessions</h1>
+{% for s in sessions %}<p>{{ s.id }} — {{ s.status }}</p>{% endfor %}
+{% endblock %}

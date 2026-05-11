@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block content %}
+<h1>Agents</h1>
+{% for a in agents %}<p>{{ a.name }} — {{ a.description }}</p>{% endfor %}
+{% endblock %}
