@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import AsyncIterator, Optional
+from typing import AsyncGenerator
 
 import yaml
 import anthropic
@@ -134,7 +134,7 @@ class Secretary:
         session_id: str,
         brief_summary: str,
         silent_mode: bool = False,
-    ) -> AsyncIterator[dict]:
+    ) -> AsyncGenerator[dict, None]:
         """
         Async generator: runs Select → Deliberate → Synthesize and yields SSE-ready event dicts.
 
@@ -246,6 +246,7 @@ class Secretary:
         synthesis = await self._llm(
             synthesis_prompt,
             [{"role": "user", "content": "Deliver your synthesis."}],
+            max_tokens=4096,
         )
 
         self.store.add_message(SessionMessage(
@@ -262,16 +263,16 @@ class Secretary:
 
     # ------------------------------------------------------------------ private
 
-    async def _llm(self, system: str, messages: list[dict]) -> str:
+    async def _llm(self, system: str, messages: list[dict], max_tokens: int = 1024) -> str:
         response = await self.client.messages.create(
             model="claude-opus-4-6",
-            max_tokens=1024,
+            max_tokens=max_tokens,
             system=system,
             messages=messages,
         )
         return response.content[0].text
 
-    async def _create_agent(self, name: str, role: str):
+    async def _create_agent(self, name: str, role: str) -> "AgentDef":
         """Generate a YAML for a new agent, write it to agents_dir, and return the AgentDef."""
         prompt = _CREATE_AGENT_SYSTEM.format(name=name, role=role)
         raw = await self._llm(
@@ -289,7 +290,8 @@ class Secretary:
             "tags": data.get("tags", ["council"]),
         }
 
-        path = self.agents_dir / f"{name}.yaml"
+        safe_name = Path(name).name
+        path = self.agents_dir / f"{safe_name}.yaml"
         with open(path, "w") as f:
             yaml.dump(agent_data, f, default_flow_style=False, allow_unicode=True)
 
