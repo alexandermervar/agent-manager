@@ -39,6 +39,7 @@ async def run_agent(
         message = await client.messages.create(
             model=agent.model,
             max_tokens=agent.max_tokens,
+            temperature=agent.temperature,
             system=agent.system_prompt,
             messages=[{"role": "user", "content": task.user_message}],
         )
