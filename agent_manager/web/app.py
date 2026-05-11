@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import quote
 from typing import Optional
@@ -21,7 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..agent_loader import load_agents_dir
 from ..executor import make_client
-from ..models import Session, SessionMessage
+from ..models import Session
 from ..secretary import Secretary
 from ..store import Store
 
@@ -116,12 +117,18 @@ def create_app(store: Store, agents_dir: str) -> FastAPI:
         secretary = Secretary(client, agents_dir, store)
 
         async def event_generator():
-            async for event in secretary.run_council(
-                session_id, summary, silent_mode=session.silent_mode
-            ):
+            try:
+                async for event in secretary.run_council(
+                    session_id, summary, silent_mode=session.silent_mode
+                ):
+                    yield {
+                        "event": event["type"],
+                        "data": json.dumps(event),
+                    }
+            except Exception as exc:
                 yield {
-                    "event": event["type"],
-                    "data": json.dumps(event),
+                    "event": "error",
+                    "data": json.dumps({"type": "error", "detail": str(exc)}),
                 }
 
         return EventSourceResponse(event_generator())
@@ -152,6 +159,8 @@ def create_app(store: Store, agents_dir: str) -> FastAPI:
             "temperature": 1.0,
             "tags": ["council"],
         }
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+            raise HTTPException(status_code=422, detail="Agent name must be lowercase snake_case")
         path = Path(agents_dir) / f"{name}.yaml"
         with open(path, "w") as f:
             yaml_lib.dump(agent_data, f, default_flow_style=False, allow_unicode=True)
