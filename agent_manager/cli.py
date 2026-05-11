@@ -6,6 +6,7 @@ Commands:
   agents show <name>       — print agent details
   run <agent> <message>    — run one agent immediately
   run --parallel …         — run multiple agents in parallel (see --help)
+  council [message]        — convene The Council (Secretary + advisors)
   queue submit <agent> <msg>  — add task to queue
   queue run                — drain the queue
   queue status             — show pending/running/completed/failed counts
@@ -137,7 +138,6 @@ def agents_show(ctx: click.Context, name: str) -> None:
 @click.pass_context
 def agents_delete(ctx: click.Context, name: str) -> None:
     """Archive (soft-delete) an agent. Moves its YAML to agents/_archived/."""
-    from pathlib import Path
     agents_dir = Path(ctx.obj["agents_dir"])
     src = agents_dir / f"{name}.yaml"
     if not src.exists():
@@ -263,7 +263,6 @@ def council_cmd(
 
     With no MESSAGE, the Secretary opens the session interactively.
     """
-    import asyncio
     from .executor import make_client
     from .secretary import Secretary
     from .store import Store
