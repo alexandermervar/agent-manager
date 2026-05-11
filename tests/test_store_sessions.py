@@ -75,3 +75,10 @@ def test_next_seq_increments(store):
         session_id=session.id, role="secretary", stage="brief", content="b", seq=1
     ))
     assert store.next_seq(session.id) == 2
+
+
+def test_update_session_rejects_unknown_field(store):
+    session = Session()
+    store.create_session(session)
+    with pytest.raises(ValueError, match="Invalid session field"):
+        store.update_session(session.id, injected_field="bad")

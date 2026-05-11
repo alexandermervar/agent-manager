@@ -116,7 +116,11 @@ class Secretary:
         ]
 
         raw = await self._llm(_BRIEF_SYSTEM, history)
-        result = json.loads(raw)
+        try:
+            result = json.loads(raw)
+        except json.JSONDecodeError:
+            # LLM returned non-JSON — treat as insufficient and ask again
+            result = {"sufficient": False, "question": "Could you tell me more about what you need?"}
 
         if not result.get("sufficient"):
             self.store.add_message(SessionMessage(
@@ -159,7 +163,10 @@ class Secretary:
         raw = await self._llm(
             select_prompt, [{"role": "user", "content": "Select the council members."}]
         )
-        selection = json.loads(raw)
+        try:
+            selection = json.loads(raw)
+        except json.JSONDecodeError:
+            selection = {"selected": list(agent_map.keys())[:3], "rationale": "Proceeding with default selection.", "create": []}
 
         # Hire any missing agents
         for spec in selection.get("create", []):
@@ -168,6 +175,9 @@ class Secretary:
 
         selected_names = [n for n in selection["selected"] if n in agent_map]
         rationale = selection.get("rationale", "")
+        if not selected_names:
+            selected_names = list(agent_map.keys())[:3]
+            rationale = "No specific advisors matched — proceeding with default selection."
 
         self.store.add_message(SessionMessage(
             session_id=session_id,
@@ -278,7 +288,10 @@ class Secretary:
         raw = await self._llm(
             prompt, [{"role": "user", "content": "Generate the agent definition."}]
         )
-        data = json.loads(raw)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Failed to generate agent definition for '{name}': {exc}") from exc
 
         agent_data = {
             "name": data.get("name", name),

@@ -108,6 +108,12 @@ const statusTxt = document.getElementById('status-text');
 const inputArea = document.getElementById('input-area');
 const msgInput  = document.getElementById('msg-input');
 
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 function scrollBottom() {
   document.getElementById('scroll-container').scrollTop = 99999;
 }
@@ -171,8 +177,8 @@ function startCouncil(summary) {
     el.className = 'council-banner';
     el.innerHTML = `
       <div class="label">Convening Council</div>
-      <div class="agents-list">${d.agents.join(' · ')}</div>
-      <div class="rationale">${d.rationale}</div>
+      <div class="agents-list">${esc(d.agents.join(' · '))}</div>
+      <div class="rationale">${esc(d.rationale)}</div>
     `;
     thread.appendChild(el);
     scrollBottom();
@@ -185,7 +191,7 @@ function startCouncil(summary) {
     el.className = 'agent-card loading';
     el.id = `agent-${d.agent_name}`;
     el.innerHTML = `
-      <div class="agent-header"><span class="agent-name">${d.agent_name.toUpperCase()}</span></div>
+      <div class="agent-header"><span class="agent-name">${esc(d.agent_name.toUpperCase())}</span></div>
       <div class="agent-body">Thinking…</div>
     `;
     thread.appendChild(el);
@@ -216,13 +222,13 @@ function startCouncil(summary) {
     el.className = 'synthesis-card';
     el.innerHTML = `
       <div class="synthesis-header"><div class="synthesis-label">Secretary's Synthesis</div></div>
-      <div class="synthesis-body">${d.content}</div>
+      <div class="synthesis-body">${esc(d.content)}</div>
     `;
     thread.appendChild(el);
     scrollBottom();
   });
 
-  es.addEventListener('error_event', e => {
+  es.addEventListener('council_error', e => {
     clearStatus();
     const d = JSON.parse(e.data);
     const el = document.createElement('div');

@@ -127,8 +127,8 @@ def create_app(store: Store, agents_dir: str) -> FastAPI:
                     }
             except Exception as exc:
                 yield {
-                    "event": "error",
-                    "data": json.dumps({"type": "error", "detail": str(exc)}),
+                    "event": "council_error",
+                    "data": json.dumps({"type": "council_error", "detail": str(exc)}),
                 }
 
         return EventSourceResponse(event_generator())
@@ -168,13 +168,16 @@ def create_app(store: Store, agents_dir: str) -> FastAPI:
 
     @app.delete("/agents/{name}")
     async def delete_agent_route(name: str) -> dict:
-        src = Path(agents_dir) / f"{name}.yaml"
+        safe = Path(name).name
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", safe):
+            raise HTTPException(status_code=422, detail="Invalid agent name")
+        src = Path(agents_dir) / f"{safe}.yaml"
         if not src.exists():
-            raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
+            raise HTTPException(status_code=404, detail=f"Agent '{safe}' not found")
         archived = Path(agents_dir) / "_archived"
         archived.mkdir(exist_ok=True)
-        src.rename(archived / f"{name}.yaml")
-        return {"status": "archived", "name": name}
+        src.rename(archived / f"{safe}.yaml")
+        return {"status": "archived", "name": safe}
 
     return app
 

@@ -254,7 +254,7 @@ class Store:
 
     # ------------------------------------------------------------------ Sessions
 
-    def create_session(self, session: "Session") -> None:
+    def create_session(self, session: "Session") -> "Session":
         self._conn.execute(
             """
             INSERT INTO sessions (id, title, status, silent_mode, created_at)
@@ -263,6 +263,7 @@ class Store:
             (session.id, session.title, session.status,
              int(session.silent_mode), session.created_at),
         )
+        return session
 
     def get_session(self, session_id: str) -> "Optional[Session]":
         row = self._conn.execute(
