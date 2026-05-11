@@ -132,6 +132,24 @@ def agents_show(ctx: click.Context, name: str) -> None:
     ))
 
 
+@agents.command("delete")
+@click.argument("name")
+@click.pass_context
+def agents_delete(ctx: click.Context, name: str) -> None:
+    """Archive (soft-delete) an agent. Moves its YAML to agents/_archived/."""
+    from pathlib import Path
+    agents_dir = Path(ctx.obj["agents_dir"])
+    src = agents_dir / f"{name}.yaml"
+    if not src.exists():
+        console.print(f"[red]Agent '{name}' not found at {src}[/red]")
+        raise SystemExit(1)
+    archived = agents_dir / "_archived"
+    archived.mkdir(exist_ok=True)
+    dest = archived / f"{name}.yaml"
+    src.rename(dest)
+    console.print(f"[yellow]Archived[/yellow] [bold]{name}[/bold] → {dest}")
+
+
 # ================================================================== run
 
 @cli.command("run")
@@ -222,6 +240,120 @@ def run_cmd(
     ok = sum(1 for r in runs if r.status == "completed")
     fail = sum(1 for r in runs if r.status == "failed")
     console.print(f"\n[dim]Done — {ok} completed, {fail} failed[/dim]")
+
+
+# ================================================================== council
+
+@cli.command("council")
+@click.argument("message", nargs=-1, required=False)
+@click.option("--silent", is_flag=True, help="Return only synthesis, hide individual agent responses.")
+@click.option("--no-brief", is_flag=True, help="Skip back-and-forth; run council immediately.")
+@click.option("--api-key", envvar="ANTHROPIC_API_KEY", default=None)
+@click.pass_context
+def council_cmd(
+    ctx: click.Context,
+    message: tuple,
+    silent: bool,
+    no_brief: bool,
+    api_key: Optional[str],
+) -> None:
+    """
+    Convene The Council. The Secretary briefs, selects advisors, runs deliberation,
+    and delivers a synthesis.
+
+    With no MESSAGE, the Secretary opens the session interactively.
+    """
+    import asyncio
+    from .executor import make_client
+    from .secretary import Secretary
+    from .store import Store
+    from .models import Session, SessionMessage
+    from rich.prompt import Prompt
+
+    store = _get_store(ctx.obj["db"])
+    client = make_client(api_key)
+    secretary = Secretary(client, ctx.obj["agents_dir"], store)
+
+    # Create session
+    session = Session(silent_mode=silent)
+    store.create_session(session)
+
+    console.print(Panel(
+        "[bold]The Council[/bold]\nType your request. The Secretary will brief the advisors.",
+        border_style="dim",
+        expand=False,
+    ))
+
+    # ── Brief stage ─────────────────────────────────────────────────────────
+    if message:
+        first_message = " ".join(message)
+    else:
+        first_message = Prompt.ask("\n[bold cyan]Secretary[/bold cyan] What's on your mind?")
+
+    brief_summary = None
+    round_count = 0
+
+    if no_brief:
+        # Skip back-and-forth — treat message as the brief summary directly
+        brief_summary = first_message
+        store.add_message(SessionMessage(
+            session_id=session.id,
+            role="user",
+            stage="brief",
+            content=first_message,
+            seq=0,
+        ))
+    else:
+        current_message = first_message
+        while round_count < 3:
+            result = asyncio.run(secretary.evaluate_brief(session.id, current_message))
+            if result["sufficient"]:
+                brief_summary = result["summary"]
+                break
+            console.print(f"\n[bold cyan]Secretary:[/bold cyan] {result['question']}\n")
+            current_message = Prompt.ask("[bold]You[/bold]")
+            round_count += 1
+
+        if brief_summary is None:
+            # Max rounds reached — use last message as summary
+            brief_summary = current_message
+
+    console.print(f"\n[dim]Brief captured. Convening the council…[/dim]\n")
+
+    # ── Select / Deliberate / Synthesize ────────────────────────────────────
+    async def run_and_print() -> None:
+        async for event in secretary.run_council(session.id, brief_summary, silent_mode=silent):
+            t = event["type"]
+            if t == "council_selected":
+                names = ", ".join(event["agents"])
+                console.print(Panel(
+                    f"[bold]Convening:[/bold] {names}\n\n{event['rationale']}",
+                    title="[bold yellow]The Secretary[/bold yellow]",
+                    border_style="yellow",
+                    expand=False,
+                ))
+            elif t == "agent_start":
+                console.print(
+                    f"\n[dim]({event['index']}/{event['total']}) Consulting {event['agent_name']}…[/dim]"
+                )
+            elif t == "agent_complete" and not silent:
+                console.print(Panel(
+                    event.get("response", ""),
+                    title=f"[bold cyan]{event['agent_name'].upper()}[/bold cyan]",
+                    border_style="cyan",
+                    expand=False,
+                ))
+            elif t == "synthesis":
+                console.print(Panel(
+                    event["content"],
+                    title="[bold yellow]SECRETARY'S SYNTHESIS[/bold yellow]",
+                    border_style="yellow",
+                    expand=False,
+                ))
+            elif t == "session_complete":
+                console.print(f"\n[dim]Session {session.id[:8]} complete.[/dim]")
+
+    asyncio.run(run_and_print())
 
 
 # ================================================================== queue
