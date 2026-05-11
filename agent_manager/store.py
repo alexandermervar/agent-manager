@@ -71,6 +71,9 @@ CREATE INDEX IF NOT EXISTS idx_session_msgs   ON session_messages(session_id, se
 """
 
 
+_ALLOWED_SESSION_FIELDS = frozenset({"title", "status", "silent_mode", "completed_at"})
+
+
 class Store:
     """Thin SQLite wrapper. Thread-safe via check_same_thread=False + WAL mode."""
 
@@ -251,7 +254,7 @@ class Store:
 
     # ------------------------------------------------------------------ Sessions
 
-    def create_session(self, session) -> None:
+    def create_session(self, session: "Session") -> None:
         self._conn.execute(
             """
             INSERT INTO sessions (id, title, status, silent_mode, created_at)
@@ -261,26 +264,31 @@ class Store:
              int(session.silent_mode), session.created_at),
         )
 
-    def get_session(self, session_id: str):
+    def get_session(self, session_id: str) -> "Optional[Session]":
         row = self._conn.execute(
             "SELECT * FROM sessions WHERE id = ?", (session_id,)
         ).fetchone()
         return _row_to_session(row) if row else None
 
-    def list_sessions(self, limit: int = 50):
+    def list_sessions(self, limit: int = 50) -> "list[Session]":
         rows = self._conn.execute(
             "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [_row_to_session(r) for r in rows]
 
     def update_session(self, session_id: str, **kwargs) -> None:
+        if not kwargs:
+            return
+        bad = set(kwargs) - _ALLOWED_SESSION_FIELDS
+        if bad:
+            raise ValueError(f"Invalid session field(s): {bad}")
         sets = ", ".join(f"{k} = ?" for k in kwargs)
         self._conn.execute(
             f"UPDATE sessions SET {sets} WHERE id = ?",
             [*kwargs.values(), session_id],
         )
 
-    def add_message(self, msg) -> None:
+    def add_message(self, msg: "SessionMessage") -> None:
         self._conn.execute(
             """
             INSERT INTO session_messages
@@ -291,7 +299,7 @@ class Store:
              msg.stage, msg.content, msg.seq, msg.created_at),
         )
 
-    def get_messages(self, session_id: str):
+    def get_messages(self, session_id: str) -> "list[SessionMessage]":
         rows = self._conn.execute(
             "SELECT * FROM session_messages WHERE session_id = ? ORDER BY seq ASC",
             (session_id,),
@@ -342,7 +350,7 @@ def _row_to_run(row: sqlite3.Row) -> Run:
     )
 
 
-def _row_to_session(row):
+def _row_to_session(row: sqlite3.Row) -> "Session":
     from .models import Session
     return Session(
         id=row["id"],
@@ -354,7 +362,7 @@ def _row_to_session(row):
     )
 
 
-def _row_to_session_message(row):
+def _row_to_session_message(row: sqlite3.Row) -> "SessionMessage":
     from .models import SessionMessage
     return SessionMessage(
         id=row["id"],
