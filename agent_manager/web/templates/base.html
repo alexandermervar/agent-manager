@@ -1,4 +1,171 @@
 <!DOCTYPE html>
-<html><head><title>The Council</title></head>
-<body>{% block content %}{% endblock %}</body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}The Council{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0a0f;
+      --surface:  #13131a;
+      --border:   #1e1e2e;
+      --text:     #cdd6f4;
+      --muted:    #585b70;
+      --gold:     #f9e2af;
+      --blue:     #89b4fa;
+      --teal:     #94e2d5;
+      --red:      #f38ba8;
+      --green:    #a6e3a1;
+      --lavender: #b4befe;
+      --sidebar-w: 260px;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'SF Pro Text', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .layout { display: flex; height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 20px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+    .sidebar-header p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .sidebar-nav { padding: 8px 0; }
+    .sidebar-nav a {
+      display: block;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
+    .sidebar-nav a:hover, .sidebar-nav a.active {
+      color: var(--text);
+      background: var(--border);
+      border-left-color: var(--gold);
+      text-decoration: none;
+    }
+    .sidebar-sessions {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+      border-top: 1px solid var(--border);
+    }
+    .sidebar-sessions a {
+      display: block;
+      padding: 8px 16px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
+    .sidebar-sessions a:hover { color: var(--text); background: var(--border); text-decoration: none; }
+    .sidebar-sessions a.active { border-left-color: var(--gold); color: var(--text); }
+    .sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .btn-new {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--gold);
+      color: #0a0a0f;
+      font-weight: 600;
+      font-size: 13px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+    }
+    .btn-new:hover { opacity: .85; text-decoration: none; color: #0a0a0f; }
+
+    /* ── Main ── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .main-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+    }
+    .main-header h2 { font-size: 14px; font-weight: 600; color: var(--text); }
+    .main-body { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .badge-briefing     { background: #2a2a3e; color: var(--lavender); }
+    .badge-selecting    { background: #2a2a3e; color: var(--blue); }
+    .badge-deliberating { background: #2a2a3e; color: var(--teal); }
+    .badge-complete     { background: #1e2a1e; color: var(--green); }
+
+    /* ── Toggle ── */
+    .toggle-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .toggle { position: relative; display: inline-block; width: 34px; height: 18px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; background: var(--border); border-radius: 18px; transition: .2s; cursor: pointer; }
+    .slider:before { content: ''; position: absolute; height: 12px; width: 12px; left: 3px; bottom: 3px; background: var(--muted); border-radius: 50%; transition: .2s; }
+    input:checked + .slider { background: var(--gold); }
+    input:checked + .slider:before { transform: translateX(16px); background: #0a0a0f; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>The Council</h1>
+      <p>Your personal cabinet</p>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/sessions" {% if request.url.path == '/sessions' %}class="active"{% endif %}>Sessions</a>
+      <a href="/agents"   {% if request.url.path == '/agents'   %}class="active"{% endif %}>Advisors</a>
+    </nav>
+    <div class="sidebar-sessions">
+      {% block sidebar_sessions %}{% endblock %}
+    </div>
+    <div class="sidebar-footer">
+      <a href="/" class="btn-new">+ New Session</a>
+    </div>
+  </aside>
+  <main class="main">
+    {% block main %}{% endblock %}
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
 </html>

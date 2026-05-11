@@ -1,6 +1,32 @@
-{% extends "base.html" %}{% block content %}
-<form method="post" action="/sessions">
-  <input name="message" placeholder="What's on your mind?" required>
-  <button type="submit">Convene</button>
-</form>
+{% extends "base.html" %}
+{% block title %}New Session — The Council{% endblock %}
+
+{% block main %}
+<div style="display:flex; align-items:center; justify-content:center; height:100%; flex-direction:column; gap:32px; padding:40px;">
+  <div style="text-align:center;">
+    <h2 style="font-size:28px; font-weight:700; color:var(--gold); letter-spacing:.03em;">The Council</h2>
+    <p style="color:var(--muted); margin-top:8px;">Bring your question. The Secretary will convene the right advisors.</p>
+  </div>
+  <form method="post" action="/sessions" style="width:100%; max-width:560px; display:flex; flex-direction:column; gap:16px;">
+    <textarea
+      name="message"
+      placeholder="What's on your mind?"
+      required
+      rows="4"
+      style="width:100%; padding:14px 16px; background:var(--surface); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:15px; resize:vertical; font-family:inherit; line-height:1.5;"
+    ></textarea>
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <label class="toggle-wrap">
+        <label class="toggle">
+          <input type="checkbox" name="silent_mode" value="1">
+          <span class="slider"></span>
+        </label>
+        Silent mode (synthesis only)
+      </label>
+      <button type="submit" style="padding:10px 24px; background:var(--gold); color:#0a0a0f; font-weight:700; font-size:14px; border:none; border-radius:8px; cursor:pointer;">
+        Convene →
+      </button>
+    </div>
+  </form>
+</div>
 {% endblock %}

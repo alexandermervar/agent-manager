@@ -1,4 +1,70 @@
-{% extends "base.html" %}{% block content %}
-<h1>Agents</h1>
-{% for a in agents %}<p>{{ a.name }} — {{ a.description }}</p>{% endfor %}
+{% extends "base.html" %}
+{% block title %}Advisors — The Council{% endblock %}
+
+{% block head %}
+<style>
+  .agent-card { background: var(--surface); border: 1px solid var(--border); border-radius:10px; padding:16px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+  .agent-card h3 { font-size:14px; font-weight:700; color:var(--teal); margin-bottom:4px; }
+  .agent-card p  { font-size:13px; color:var(--muted); }
+  .btn-fire { padding:6px 14px; background:transparent; border:1px solid var(--red); color:var(--red); border-radius:6px; cursor:pointer; font-size:12px; }
+  .btn-fire:hover { background:var(--red); color:#0a0a0f; }
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; align-items:center; justify-content:center; }
+  .modal-bg.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px; width:480px; display:flex; flex-direction:column; gap:14px; }
+  .modal h3 { color:var(--gold); font-size:16px; }
+  .modal input, .modal textarea { width:100%; padding:10px 12px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:13px; font-family:inherit; }
+  .modal textarea { height:100px; resize:vertical; }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+  .btn-cancel { padding:8px 16px; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:6px; cursor:pointer; }
+  .btn-hire   { padding:8px 16px; background:var(--gold); color:#0a0a0f; font-weight:700; border:none; border-radius:6px; cursor:pointer; }
+</style>
+{% endblock %}
+
+{% block main %}
+<div class="main-header">
+  <h2>Advisors</h2>
+  <button class="btn-new" style="width:auto; padding:8px 16px;" onclick="document.getElementById('hire-modal').classList.add('open')">+ Hire Advisor</button>
+</div>
+<div class="main-body">
+  <div style="display:flex; flex-direction:column; gap:10px; max-width:720px;">
+    {% for agent in agents %}
+    <div class="agent-card">
+      <div>
+        <h3>{{ agent.name }}</h3>
+        <p>{{ agent.description }}</p>
+        <p style="margin-top:6px; font-size:11px; color:var(--muted);">{{ agent.model }} · {{ ', '.join(agent.tags) or '—' }}</p>
+      </div>
+      <button class="btn-fire" onclick="fireAgent('{{ agent.name }}')">Fire</button>
+    </div>
+    {% endfor %}
+    {% if not agents %}
+    <p style="color:var(--muted);">No advisors yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Hire modal -->
+<div class="modal-bg" id="hire-modal">
+  <form class="modal" method="post" action="/agents">
+    <h3>Hire New Advisor</h3>
+    <input name="name" placeholder="Name (snake_case)" required pattern="[a-z][a-z0-9_]*">
+    <input name="description" placeholder="One-sentence description" required>
+    <textarea name="system_prompt" placeholder="System prompt — instructions for this advisor" required></textarea>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="document.getElementById('hire-modal').classList.remove('open')">Cancel</button>
+      <button type="submit" class="btn-hire">Hire</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function fireAgent(name) {
+  if (!confirm(`Fire ${name}? They will be archived.`)) return;
+  const resp = await fetch(`/agents/${name}`, { method: 'DELETE' });
+  if (resp.ok) location.reload();
+  else alert('Failed to fire advisor.');
+}
+</script>
 {% endblock %}

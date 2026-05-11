@@ -1,4 +1,23 @@
-{% extends "base.html" %}{% block content %}
-<h1>Sessions</h1>
-{% for s in sessions %}<p>{{ s.id }} — {{ s.status }}</p>{% endfor %}
+{% extends "base.html" %}
+{% block title %}Sessions — The Council{% endblock %}
+
+{% block main %}
+<div class="main-header"><h2>Sessions</h2></div>
+<div class="main-body">
+  {% if not sessions %}
+    <p style="color:var(--muted);">No sessions yet. <a href="/">Start one.</a></p>
+  {% else %}
+  <div style="display:flex; flex-direction:column; gap:10px; max-width:720px;">
+    {% for s in sessions %}
+    <a href="/sessions/{{ s.id }}" style="display:block; padding:16px 20px; background:var(--surface); border:1px solid var(--border); border-radius:10px; text-decoration:none; transition: border-color .15s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <span style="font-weight:600; color:var(--text);">{{ s.title or 'Session ' + s.id[:8] }}</span>
+        <span class="badge badge-{{ s.status }}">{{ s.status }}</span>
+      </div>
+      <div style="font-size:12px; color:var(--muted);">{{ s.created_at[:19].replace('T',' ') }}</div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
 {% endblock %}
